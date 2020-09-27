@@ -1,7 +1,7 @@
 import XCTest
 
-import TwitterKitTests
+import KotoriTests
 
 var tests = [XCTestCaseEntry]()
-tests += TwitterKitTests.allTests()
+tests += KotoriTests.allTests()
 XCTMain(tests)
