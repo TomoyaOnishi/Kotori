@@ -40,7 +40,7 @@ let accountStore = TwitterAccountStore(keychainAccessGroup: "Your keychain acces
 ```
 
 2. Authorization handshake start.
-```
+```swift
 twitterLoginFlow.authorize()
     .receive(on: RunLoop.main)
     .sink(
@@ -56,7 +56,7 @@ twitterLoginFlow.authorize()
 
 Kotori request you for open the twitter login page to authorize by the user.
 So, add codes which open the twitter login page in your app.
-```
+```swift
 NotificationCenter.default.publisher(for: TwitterAuthorizationFlow.resourceOwnerAuthorizationOpenURL)
     .sink(
         receiveCompletion: { _ in },
