@@ -150,7 +150,7 @@ PRs are welcome. Format is free!
 
 # Naming
 
-Kotori is `small bird` in English. 
+Kotori is `small bird` in Japanese. 
 
 Kotori is small and lightweight library for the Twitter.
 
