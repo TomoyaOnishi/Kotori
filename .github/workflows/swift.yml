@@ -1,0 +1,19 @@
+name: Swift
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+
+    runs-on: macos-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Select xcode version
+      run: sudo xcode-select-s '/Applications/Xcode_12.4.app/Contents/Developer'
+    - name: Show xcode version
+      run: xcodebuild -version
