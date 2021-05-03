@@ -4,6 +4,10 @@
 
 A super lightweight and testable library for Twitter written in Swift using Combine.
 
+# Statuses
+
+[![Swift](https://github.com/TomoyaOnishi/Kotori/actions/workflows/test.yml/badge.svg)](https://github.com/TomoyaOnishi/Kotori/actions/workflows/test.yml)
+
 # Futures
 
 - [x] Support Twitter v1 API (OAuth1.0)
