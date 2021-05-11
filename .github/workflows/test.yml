@@ -10,7 +10,7 @@ on:
   #   branches: [main]
 
   schedule:
-    - cron: "15 2 * * *"
+    - cron: "* 3 * * *"
 
 jobs:
   test:
@@ -34,4 +34,5 @@ jobs:
           -sdk iphonesimulator
           -configuration Debug
           -scheme Kotori
+          -destination 'platform=iOS Simulator,name=iPhone 12'
           clean test
