@@ -3,24 +3,20 @@ name: Unit Test
 on:
   workflow_dispatch:
 
-  # push:
-  #   branches: [main]
+  push:
+    branches: [main]
 
-  # pull_request:
-  #   branches: [main]
+  pull_request:
+    branches: [main]
 
   schedule:
-    - cron: "* 12 * * *"
+    - cron: "0 2 * * *"
 
 jobs:
   test:
     runs-on: macos-latest
 
     steps:
-      - name: Setup timezone
-        env:
-          TZ: 'Asia/Tokyo'
-
       - uses: actions/checkout@v2
 
       - name: Show xcode version
