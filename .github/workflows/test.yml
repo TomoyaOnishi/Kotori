@@ -1,7 +1,4 @@
-name: Swift
-
-env:
-  TZ: "Asia/Tokyo"
+name: Unit Test
 
 on:
   workflow_dispatch:
@@ -13,7 +10,7 @@ on:
   #   branches: [main]
 
   schedule:
-    - cron: "10 11 * * *"
+    - cron: "15 2 * * *"
 
 jobs:
   test:
