@@ -17,12 +17,9 @@ jobs:
     runs-on: macos-latest
 
     steps:
-      - name: Print date
-        run: |
-          # UTC
-          echo $(date '+%Y-%m-%d %H:%M:%S(%z)')
-          # JST
-          echo $(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M:%S(%z)')
+      - name: Setup timezone
+        env:
+          TZ: 'Asia/Tokyo'
 
       - uses: actions/checkout@v2
 
