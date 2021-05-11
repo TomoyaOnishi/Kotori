@@ -1,23 +1,40 @@
 name: Swift
 
+env:
+  TZ: "Asia/Tokyo"
+
 on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+  workflow_dispatch:
+
+  # push:
+  #   branches: [main]
+
+  # pull_request:
+  #   branches: [main]
+
+  schedule:
+    - cron: "10 11 * * *"
 
 jobs:
-  build:
-
+  test:
     runs-on: macos-latest
 
     steps:
-    - uses: actions/checkout@v2
-    - name: Show xcode version
-      run: xcodebuild -version
-    - name: Run testing
-      run: xcodebuild
-        -sdk iphonesimulator
-        -configuration Debug
-        -scheme Kotori
-        build
+      - name: Print date
+        run: |
+          # UTC
+          echo $(date '+%Y-%m-%d %H:%M:%S(%z)')
+          # JST
+          echo $(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M:%S(%z)')
+
+      - uses: actions/checkout@v2
+
+      - name: Show xcode version
+        run: xcodebuild -version
+
+      - name: Run testing
+        run: xcodebuild
+          -sdk iphonesimulator
+          -configuration Debug
+          -scheme Kotori
+          clean test

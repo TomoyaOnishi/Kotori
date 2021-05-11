@@ -121,7 +121,7 @@ public class TwitterMediaUploader {
     public typealias Output = MediaUploadOutput
     public typealias Failure = MediaUploadError
 
-    private static let chunkedUploadSizeInMB: Int = 0.5
+    private static let chunkedUploadSizeInMB: Int = 1
     private var cancellers: Set<AnyCancellable> = .init()
 
     let credential: TwitterCredential
