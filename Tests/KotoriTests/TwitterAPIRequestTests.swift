@@ -7,7 +7,7 @@ class TwitterAPIRequestTests: XCTestCase {
 
     func test_authorize() {
         XCTContext.runActivity(named: "no url query, no http body.") { _ in
-            let components = DateComponents(calendar: Calendar(identifier: .gregorian), year: 2020, month: 10, day: 1)
+            let components = DateComponents(calendar: Calendar(identifier: .gregorian), timeZone: TimeZone(identifier: "Asia/Tokyo"), year: 2020, month: 10, day: 1)
             let timestamp = components.date!
             let nonce = UUID(uuidString: "0721E933-2B55-47B9-9308-E711913A9719")!
 
@@ -31,7 +31,7 @@ class TwitterAPIRequestTests: XCTestCase {
         }
 
         XCTContext.runActivity(named: "no url query, no http body.") { _ in
-            let components = DateComponents(calendar: Calendar(identifier: .gregorian), year: 2020, month: 10, day: 1)
+            let components = DateComponents(calendar: Calendar(identifier: .gregorian), timeZone: TimeZone(identifier: "Asia/Tokyo"), year: 2020, month: 10, day: 1)
             let timestamp = components.date!
             let nonce = UUID(uuidString: "0721E933-2B55-47B9-9308-E711913A9719")!
 
@@ -55,7 +55,7 @@ class TwitterAPIRequestTests: XCTestCase {
         }
 
         XCTContext.runActivity(named: "url query, http body") { _ in
-            let components = DateComponents(calendar: Calendar(identifier: .gregorian), year: 2020, month: 10, day: 1)
+            let components = DateComponents(calendar: Calendar(identifier: .gregorian), timeZone: TimeZone(identifier: "Asia/Tokyo"), year: 2020, month: 10, day: 1)
             let timestamp = components.date!
             let nonce = UUID(uuidString: "0721E933-2B55-47B9-9308-E711913A9719")!
 
