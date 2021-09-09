@@ -15,9 +15,9 @@ public class Kotori {
 
 public extension TwitterMediaUploader {
     enum MediaUploadError: Error {
-        case initFailed(underlyingError: Error)
-        case appendFailed(underlyingError: Error)
-        case finalizeFailed(underlyingError: Error)
-        case giveup(underlyingError: Error?, recoveryHint: String)
+        case initFailed
+        case appendFailed
+        case finalizeFailed
+        case giveup(recoveryHint: String)
     }
 }
