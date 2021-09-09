@@ -8,7 +8,7 @@ class AuthorizationFlowTests: XCTestCase {
     typealias Subject = AuthorizationFlow
 
     func test_requestToken() {
-        let components = DateComponents(calendar: Calendar(identifier: .gregorian), year: 2020, month: 10, day: 1)
+        let components = DateComponents(calendar: Calendar(identifier: .gregorian), timeZone: TimeZone(identifier: "Asia/Tokyo"), year: 2020, month: 10, day: 1)
         let timestamp = components.date!
         let nonce = UUID(uuidString: "0721E933-2B55-47B9-9308-E711913A9719")!
         let subject = Subject.TemporaryCredentialRequest(
@@ -64,7 +64,7 @@ class AuthorizationFlowTests: XCTestCase {
     }
 
     func test_accessToken() {
-        let components = DateComponents(calendar: Calendar.current, year: 2020, month: 10, day: 1)
+        let components = DateComponents(calendar: Calendar(identifier: .gregorian), timeZone: TimeZone(identifier: "Asia/Tokyo"), year: 2020, month: 10, day: 1)
         let timestamp = components.date!
         let nonce = UUID(uuidString: "0721E933-2B55-47B9-9308-E711913A9719")!
 

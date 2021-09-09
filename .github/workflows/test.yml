@@ -1,0 +1,31 @@
+name: Unit Test
+
+on:
+  workflow_dispatch:
+
+  push:
+    branches: [main]
+
+  pull_request:
+    branches: [main]
+
+  schedule:
+    - cron: "0 2 * * *"
+
+jobs:
+  test:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Show xcode version
+        run: xcodebuild -version
+
+      - name: Run testing
+        run: xcodebuild
+          -sdk iphonesimulator
+          -configuration Debug
+          -scheme Kotori
+          -destination 'platform=iOS Simulator,name=iPhone 12'
+          clean test
