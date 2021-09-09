@@ -2,7 +2,7 @@
 
 # Kotori
 
-A super lightweight and testable library for Twitter written in Swift using Combine.
+A super lightweight and testable library for Twitter written in Swift using Combine and async/await
 
 # Statuses
 
@@ -124,29 +124,33 @@ let urlRequest = twitterRequest.makeURLRequest()
 
 Use `TwitterMediaUploader`.
 
-Kotori supports chunked upload. Chuneked upload is very fast upload method but has many steps and difficult. So, Kotori may help you.
+Kotori supports chunked upload. Chuneked upload is a very fast upload method but has many steps and difficult. So, Kotori may help you.
 
 Single image upload sample.
 ```swift
-let uploader = TwitterMediaUploader(credential: credentials, data: imageData, mimeType: "image/png", clientCredential: clientCredential, index: index)
-// uploader.publisher().sink()
+let uploader: TwitterMediaUploader = .init(credential: credential,data: media.data, mimeType: media.mimeType, clientCredential: clientCredential, index: index)
+try await uploader.upload()
 ```
 
 Multiple image upload sample.
 ```swift
-let mediaUploaders = medias.enumerated().map({ index, media -> AnyPublisher<MediaUploadOutput, TwitterMediaUploader.MediaUploadError> in
-    let mediaUpload: TwitterMediaUploader = .init(credential: credentials, data: media.data, mimeType: media.mimeType, clientCredential: clientCredential, index: index)
-    return mediaUpload.publisher()
-})
+        var mediaUploadResults: [MediaUploadOutput] = []
+        try await withThrowingTaskGroup(of: MediaUploadOutput.self, body: { group in
+            for (index, media) in tweet.medias.enumerated() {
+                group.addTask(priority: .userInitiated) {
+                    let uploader: TwitterMediaUploader = .init(credential: credential,
+                                                               data: media.data,
+                                                               mimeType: media.mimeType,
+                                                               clientCredential: clientCredential,
+                                                               index: index)
+                    return try await uploader.upload()
+                }
 
-Publishers.MergeMany(mediaUploaders)
-.collect(mediaUploaders.count)
-.sink(
-    receiveCompletion: { _ in },
-    receiveValue: { output in 
-      // Get media IDs from output.
-    }
-).store(in: &cancellables)
+                for try await output in group {
+                    mediaUploadResults.append(output)
+                }
+            }
+        })
 ```
 
 # Contribution
@@ -157,5 +161,3 @@ PRs are welcome. Format is free!
 Kotori is `small bird` in Japanese. 
 
 Kotori is small and lightweight library for the Twitter.
-
-Kotori may help you...
