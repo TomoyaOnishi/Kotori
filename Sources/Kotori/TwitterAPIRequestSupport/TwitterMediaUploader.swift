@@ -1,6 +1,4 @@
 import Foundation
-import Combine
-import Dispatch
 
 public struct MediaID: Codable {
     public let value: UInt64
@@ -96,7 +94,7 @@ struct StatusCommand {
 
 struct ProcessingInfo: Decodable {
     let state: State
-    let checkAfter: TimeInterval?
+    let checkAfter: UInt64?
 
     enum CodingKeys: String, CodingKey {
         case state = "state"
@@ -121,8 +119,7 @@ public class TwitterMediaUploader {
     public typealias Output = MediaUploadOutput
     public typealias Failure = MediaUploadError
 
-    private static let chunkedUploadSizeInMB: Int = 0.5
-    private var cancellers: Set<AnyCancellable> = .init()
+    private static let chunkedUploadSizeInMB: Int = 1
 
     let credential: TwitterCredential
     let resourceURL: URL = URL(string: "https://upload.twitter.com/1.1/media/upload.json")!
@@ -138,149 +135,99 @@ public class TwitterMediaUploader {
         self.index = index
     }
 
-    public func publisher() -> AnyPublisher<Output, Failure> {
-        Future<Output, Failure>.init { [weak self] (promise) in
-            guard let self = self else { return }
+    public func upload() async throws -> Output {
+        let initResponse = try await initCommand()
+        let isAppendSuccess = try await appendCommand(initResponse: initResponse)
+        guard isAppendSuccess else { throw TwitterMediaUploader.MediaUploadError.appendFailed }
+        let mediaUploadOutput = try await finilizeCommand(initResponse: initResponse)
+        return mediaUploadOutput
+    }
 
-            /**
-             Init command phase.
-             */
-
-            let initCommad = InitCommand(totalBytes: self.data.count, mediaType: self.mimeType)
-            let twitterRequest = TwitterAPIRequest(resourceURL: self.resourceURL,
+    private func initCommand() async throws -> InitCommand.Response {
+        let initCommad = InitCommand(totalBytes: data.count, mediaType: mimeType)
+        let initTwitterRequest = TwitterAPIRequest(resourceURL: self.resourceURL,
                                                    httpMethod: initCommad.httpMethod,
                                                    parameters: initCommad.parameters,
                                                    credential: self.credential,
                                                    clientCredential: self.clientCredential)
 
-            URLSession.shared.dataTaskPublisher(for: twitterRequest.makeURLRequest())
-                .map({ $0.data })
-                .decode(type: InitCommand.Response.self, decoder: JSONDecoder())
-                .sink(
-                    receiveCompletion: { result in
-                        switch result {
-                        case .finished:
-                            break
-                        case .failure(let error):
-                            promise(.failure(.initFailed(underlyingError: error)))
-                        }
-                    },
-                    receiveValue: { initResponse in
+        let (data, _) = try await URLSession.shared.data(for: initTwitterRequest.makeURLRequest())
+        return try JSONDecoder().decode(InitCommand.Response.self, from: data)
+    }
 
-                        /**
-                         Append command phase.
-                         */
+    private func appendCommand(initResponse: InitCommand.Response) async throws -> Bool {
+        let sizeInMB: Float = Float(self.data.count) / 1024.0 / 1024.0
+        let preffredChunkCount: Int = Int(ceil(Float(ceil(sizeInMB)) / Float(Self.chunkedUploadSizeInMB)))
 
-                        let sizeInMB: Float = Float(self.data.count) / 1024.0 / 1024.0
-                        let preffredChunkCount: Int = Int(ceil(Float(ceil(sizeInMB)) / Float(Self.chunkedUploadSizeInMB)))
+        var uploadData = data
 
-                        var uploadData = self.data
-                        let chunkedUploadTasks = (0..<preffredChunkCount).map({ index -> URLSession.DataTaskPublisher in
-                            let chunkSize = Self.chunkedUploadSizeInMB * 1024 * 1024
-                            let chunk: Data
-                            if chunkSize < uploadData.count {
-                                chunk = uploadData.prefix(chunkSize)
-                                uploadData.removeFirst(chunkSize)
-                            } else {
-                                chunk = uploadData
-                            }
+        let appendRequests: [URLRequest] = (0..<preffredChunkCount).map { index in
+            let chunkSize = Self.chunkedUploadSizeInMB * 1024 * 1024
+            let chunk: Data
+            if chunkSize < uploadData.count {
+                chunk = uploadData.prefix(chunkSize)
+                uploadData.removeFirst(chunkSize)
+            } else {
+                chunk = uploadData
+            }
 
-                            let appendCommand = AppendCommand(mediaID: initResponse.mediaID, media: chunk, segmentIndex: index)
-                            let twitterRequest = TwitterMediaUploadRequest(resourceURL: self.resourceURL,
-                                                                           httpMethod: appendCommand.httpMethod,
-                                                                           data: appendCommand.media,
-                                                                           parameters: appendCommand.parameters,
-                                                                           credential: self.credential,
-                                                                           clientCredential: self.clientCredential)
-
-                            return URLSession.shared.dataTaskPublisher(for: twitterRequest.makeURLRequest())
-                        })
-
-                        Publishers.MergeMany(chunkedUploadTasks)
-                            .compactMap({ $0.response as? HTTPURLResponse })
-                            .allSatisfy({ 200 ..< 300 ~= $0.statusCode })
-                            .sink(
-                                receiveCompletion: { result in
-                                    switch result {
-                                    case .finished:
-                                        break
-                                    case .failure(let error):
-                                        promise(.failure(.appendFailed(underlyingError: error)))
-                                    }
-                                },
-                                receiveValue: { (isAllSatisfy) in
-                                    if isAllSatisfy {
-
-                                        /**
-                                         Finalize command phase.
-                                         */
-
-                                        let finalizeCommand = FinilizeCommand(mediaID: initResponse.mediaID)
-                                        let twitterRequest = TwitterAPIRequest(resourceURL: self.resourceURL,
-                                                                               httpMethod: finalizeCommand.httpMethod,
-                                                                               parameters: finalizeCommand.parameters,
-                                                                               credential: self.credential,
-                                                                               clientCredential: self.clientCredential)
-
-                                        URLSession.shared.dataTaskPublisher(for: twitterRequest.makeURLRequest())
-                                            .map({ $0.data })
-                                            .decode(type: FinilizeCommand.Response.self, decoder: JSONDecoder())
-                                            .sink(
-                                                receiveCompletion: { (result) in
-                                                    switch result {
-                                                    case .finished:
-                                                        break
-                                                    case .failure(let error):
-                                                        promise(.failure(.finalizeFailed(underlyingError: error)))
-                                                    }
-                                                },
-                                                receiveValue: { (finalizeResponse) in
-                                                    if let processingInfo = finalizeResponse.processingInfo {
-
-                                                        /**
-                                                         Status check phase
-                                                         */
-
-                                                        let delay = processingInfo.checkAfter ?? 5
-                                                        let statusCommand = StatusCommand(mediaID: initResponse.mediaID)
-                                                        let twitterRequest = TwitterAPIRequest(resourceURL: self.resourceURL,
-                                                                                               httpMethod: statusCommand.httpMethod,
-                                                                                               parameters: statusCommand.parameters,
-                                                                                               credential: self.credential,
-                                                                                               clientCredential: self.clientCredential)
-
-                                                        URLSession.shared.dataTaskPublisher(for: twitterRequest.makeURLRequest())
-                                                            .delay(for: .seconds(delay), scheduler: OperationQueue.current!)
-                                                            .map({ $0.data })
-                                                            .decode(type: StatusCommand.Response.self, decoder: JSONDecoder())
-                                                            .sink(
-                                                                receiveCompletion: { result in
-                                                                    switch result {
-                                                                    case .finished:
-                                                                        break
-                                                                    case .failure(let error):
-                                                                        promise(.failure(.giveup(underlyingError: error, recoveryHint: "Retry upload or fix me.")))
-                                                                    }
-                                                                },
-                                                                receiveValue: { statusCommandResponse in
-                                                                    if statusCommandResponse.processingInfo?.state == .succeeded {
-                                                                        promise(.success(MediaUploadOutput(mediaID: statusCommandResponse.mediaID, index: self.index)))
-                                                                    } else {
-                                                                        promise(.failure(.giveup(underlyingError: nil, recoveryHint: "Retry upload or fix me.")))
-                                                                    }
-                                                                })
-                                                            .store(in: &self.cancellers)
-                                                    } else {
-                                                        promise(.success(MediaUploadOutput(mediaID: finalizeResponse.mediaID, index: self.index)))
-                                                    }
-                                                })
-                                            .store(in: &self.cancellers)
-                                    }
-                                })
-                            .store(in: &self.cancellers)
-                    })
-                .store(in: &self.cancellers)
+            let appendCommand = AppendCommand(mediaID: initResponse.mediaID, media: chunk, segmentIndex: index)
+            let appendTwitterRequest = TwitterMediaUploadRequest(resourceURL: self.resourceURL,
+                                                                 httpMethod: appendCommand.httpMethod,
+                                                                 data: appendCommand.media,
+                                                                 parameters: appendCommand.parameters,
+                                                                 credential: self.credential,
+                                                                 clientCredential: self.clientCredential)
+            return appendTwitterRequest.makeURLRequest()
         }
-        .eraseToAnyPublisher()
+
+        let isAppendSuccess = try await withThrowingTaskGroup(of: HTTPURLResponse.self, body: { group -> Bool in
+            for appendRequest in appendRequests {
+                group.addTask(priority: .userInitiated) {
+                    let (_, response) = try await URLSession.shared.data(for: appendRequest)
+                    return response as! HTTPURLResponse
+                }
+            }
+
+            let isAllSuccess = try await group.allSatisfy { $0.statusCode == 204 }
+            return isAllSuccess
+        })
+
+        return isAppendSuccess
+    }
+
+    private func finilizeCommand(initResponse: InitCommand.Response) async throws -> MediaUploadOutput {
+        let finalizeCommand = FinilizeCommand(mediaID: initResponse.mediaID)
+        let finalizeTwitterRequest = TwitterAPIRequest(resourceURL: self.resourceURL,
+                                                       httpMethod: finalizeCommand.httpMethod,
+                                                       parameters: finalizeCommand.parameters,
+                                                       credential: self.credential,
+                                                       clientCredential: self.clientCredential)
+
+        let (data, _) = try await URLSession.shared.data(for: finalizeTwitterRequest.makeURLRequest())
+        let finilizeResponse = try JSONDecoder().decode(FinilizeCommand.Response.self, from: data)
+
+        guard let processingInfo = finilizeResponse.processingInfo else {
+            return MediaUploadOutput(mediaID: finilizeResponse.mediaID, index: index)
+        }
+
+        let delay: UInt64 = processingInfo.checkAfter ?? 5
+        await Task.sleep(delay)
+
+        let statusCommand = StatusCommand(mediaID: initResponse.mediaID)
+        let statusTwitterRequest = TwitterAPIRequest(resourceURL: self.resourceURL,
+                                                     httpMethod: statusCommand.httpMethod,
+                                                     parameters: statusCommand.parameters,
+                                                     credential: self.credential,
+                                                     clientCredential: self.clientCredential)
+
+        let (statusData, _) = try await URLSession.shared.data(for: statusTwitterRequest.makeURLRequest())
+        let statusResponse = try JSONDecoder().decode(StatusCommand.Response.self, from: statusData)
+
+        guard statusResponse.processingInfo?.state == .succeeded else {
+            throw TwitterMediaUploader.MediaUploadError.giveup(recoveryHint: "The developer gives up. Please PRs for the error handling.")
+        }
+
+        return MediaUploadOutput(mediaID: statusResponse.mediaID, index: index)
     }
 }
