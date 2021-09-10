@@ -134,8 +134,9 @@ try await uploader.upload()
 
 Multiple image upload sample.
 ```swift
-        var mediaUploadResults: [MediaUploadOutput] = []
-        try await withThrowingTaskGroup(of: MediaUploadOutput.self, body: { group in
+        
+        try await withThrowingTaskGroup(of: MediaUploadOutput.self, body: { group -> [MediaUploadOutput] in
+            var mediaUploadResults: [MediaUploadOutput] = []
             for (index, media) in tweet.medias.enumerated() {
                 group.addTask(priority: .userInitiated) {
                     let uploader: TwitterMediaUploader = .init(credential: credential,
@@ -149,6 +150,7 @@ Multiple image upload sample.
                 for try await output in group {
                     mediaUploadResults.append(output)
                 }
+                return mediaUploadResults
             }
         })
 ```
